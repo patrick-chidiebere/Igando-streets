@@ -116,10 +116,10 @@ button.ghost{background:rgba(255,255,255,.06)}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/inflate.min.js"></script>
+<script>if(!window.THREE){document.write('<script src="https://unpkg.com/three@0.128.0/build/three.min.js"><\/script>');}</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/three@0.128.0/examples/js/libs/fflate.min.js'"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
-<script>if(!window.THREE){document.write('<script src="https://unpkg.com/three@0.128.0/build/three.min.js"><\/script>');}</script>
 <script>
 (()=>{
 'use strict';
@@ -388,7 +388,16 @@ const MODEL_HEIGHT=1.75,MODEL_YAW=0;
 const CLOTH_RE=/cloth|shirt|jacket|pant|trouser|suit|outfit|coat|vest|body|torso|top|bottom|dress|uniform|hoodie|shorts|skirt|fabric/i;
 const NPC_PALETTE=[0xcc2222,0x2255cc,0x22aa55,0xf0c020,0x8844bb,0xee7722,0xeeeeee,0x333333,0x22aaaa,0xd94f8a];
 const fbxLoader=T.FBXLoader?new T.FBXLoader():null;
-function loadFBX(file){return new Promise((ok,fail)=>{if(!fbxLoader)return fail(new Error('FBXLoader unavailable'));fbxLoader.load(MODEL_PATH+file,ok,undefined,fail);});}
+function loadFBX(file){
+  return new Promise((resolve,reject)=>{
+    if(!fbxLoader)return reject(new Error('FBXLoader unavailable'));
+    const url=MODEL_PATH+file;
+    fbxLoader.load(url,resolve,undefined,error=>{
+      const detail=error&&error.message?error.message:String(error||'Network or FBX parsing error');
+      reject(new Error(file+': '+detail));
+    });
+  });
+}
 function normalizeModel(root){root.rotation.y=MODEL_YAW;root.scale.setScalar(1);root.updateMatrixWorld(true);const b=new T.Box3().setFromObject(root),h=(b.max.y-b.min.y)||1;root.scale.setScalar(MODEL_HEIGHT/h);root.updateMatrixWorld(true);const b2=new T.Box3().setFromObject(root);root.position.y-=b2.min.y;root.updateMatrixWorld(true);return root;}
 function makeAnim(root,clips){
   if(!clips||!clips.length)return null;
@@ -401,7 +410,7 @@ function makeAnim(root,clips){
     update(dt){mixer.update(dt);}
   };
 }
-function dbg(m){const e=document.getElementById('dbg');if(e)e.textContent+=m+' | ';}
+function dbg(m){const e=document.getElementById('dbg');if(e){e.textContent+=m+' | ';e.title=e.textContent;}console.info('[Igando Streets]',m); }
 function tintClothes(root,hex){
   root.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];
     o.material=mats.map(m=>{const c=m.clone();if(CLOTH_RE.test(m.name||''))c.color.set(hex);return c;});});
@@ -410,8 +419,8 @@ let playerAnim=null;
 async function setupModels(){
   if(!fbxLoader){dbg('FBXLoader missing: shapes');return;}
   let char=null,idle=null;
-  try{char=await loadFBX('Walking.fbx');dbg('Walking.fbx OK');}catch(e){dbg('Walking.fbx FAIL');console.warn('Walking.fbx',e);}
-  try{idle=await loadFBX('Idle.fbx');dbg('Idle.fbx OK');}catch(e){dbg('Idle.fbx FAIL');console.warn('Idle.fbx',e);}
+  try{char=await loadFBX('Walking.fbx');dbg('Walking.fbx OK');}catch(e){dbg('Walking.fbx FAIL: '+(e&&e.message?e.message:'unknown error'));console.warn('Walking.fbx',e);}
+  try{idle=await loadFBX('Idle.fbx');dbg('Idle.fbx OK');}catch(e){dbg('Idle.fbx FAIL: '+(e&&e.message?e.message:'unknown error'));console.warn('Idle.fbx',e);}
   if(!char)return;
   const clips=[];
   if(idle&&idle.animations&&idle.animations[0]){idle.animations[0].name='Idle';clips.push(idle.animations[0]);}
